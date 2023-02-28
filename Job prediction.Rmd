@@ -1,6 +1,6 @@
 ---
 title: "Project"
-author: "Sterre Corver"
+author: "Sterre Corver and Tim van der Laan"
 date: "2023-02-22"
 output:
   html_document: default
@@ -9,10 +9,9 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-getwd()
 ```
 
-```{r, results=hide}
+```{r}
 library(janitor)
 library(tidyverse)
 library(tidymodels)
@@ -135,7 +134,6 @@ summary_table
 boxplot_data
 histogram_data
 ```
-
 
 
 
