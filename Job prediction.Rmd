@@ -1,0 +1,143 @@
+---
+title: "Project"
+author: "Sterre Corver"
+date: "2023-02-22"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+getwd()
+```
+
+```{r, results=hide}
+library(janitor)
+library(tidyverse)
+library(tidymodels)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(tidyr)
+```
+
+We upload the dataset in R, and make sure that the variable names that consist of more than 1 word, there will be placed an _ between the words. 
+
+```{r}
+data <- read.csv("job_search_dataset.csv") %>% clean_names()
+```
+
+##Pre-processing
+Remove the variabels "...." since they have hte.
+
+```{r}
+df <- subset(data, select = -c(employee_count, standard_hours, over18))
+```
+
+Now we transform the binary variables answered with yes/no by 1/0, and then reclassify them into factors.
+
+```{r}
+df <- df %>%
+  mutate(across(c("attrition","over_time"),
+                ~ if_else(. == "Yes",1,0))) %>% 
+  mutate(across(c("attrition","over_time"),
+                ~ as.factor(.)))
+```
+
+
+We continue by reclassifying the nominal and the ordinal variables as factors. For the ordinal vectors we make sure that the order is kept.
+
+```{r}
+df <- df %>%  
+  mutate(across(c("department", "education_field",
+                  "job_role", "marital_status"),~ as.factor(.))) %>%
+  mutate(across(c("environment_satisfaction", "job_satisfaction",
+                  "relationship_satisfaction",
+                  "work_life_balance","business_travel", "education" ,
+                  "job_involvement","job_level", "stock_option_level",
+                  "performance_rating"),
+                ~ as.ordered(.))) %>%
+  mutate(business_travel = factor(business_travel, ordered = TRUE,
+                                  levels = c("Non-Travel",
+                                             "Travel_Rarely","Travel_Frequently")))
+```
+
+
+Now we put the different variables into groups
+```{r}
+numerical <- c("age", "distance_from_home","hourly_rate",
+               "daily_rate", "monthly_rate","monthly_income",
+               "percent_salary_hike","years_at_company",
+               "years_in_current_role","years_since_last_promotion",
+               "years_with_curr_manager","total_working_years",
+               "num_companies_worked","training_times_last_year") 
+
+categorical <- c("gender","over_time","department",
+                 "education_field", "job_role", "marital_status")
+
+ordinal <- c("environment_satisfaction", "job_satisfaction",
+             "relationship_satisfaction","work_life_balance",
+             "job_involvement","performance_rating",
+             "business_travel", "education","job_level",
+             "stock_option_level")
+```
+
+   
+##Descriptive analysis
+We start by looking at the dependent variable in our regression, which is the attrition rate.This is the number of employees that have left te firm divided by the total number of employees at the firm.
+
+```{r}
+
+attrition_counts <- data %>%
+  count(attrition)
+
+pie_chart <- ggplot(attrition_counts, aes(x = "", y = n, fill = attrition)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  geom_text(aes(label = paste0(n)), position = position_stack(vjust = 0.5)) +
+  labs(title = "Attrition") +
+  theme_void()
+
+# Display the pie chart
+pie_chart
+```
+
+We continue by making a selection of some of the variables, which we selected to use in our analysis. We made this selection by going through literature, and see which according to them, had a significant influence on the attrition rate.
+
+```{r}
+subset_data <- data %>%
+  select(years_in_current_role, monthly_income, job_satisfaction, work_life_balance, age, gender)
+
+summary_table <- subset_data %>%
+  select(years_in_current_role, monthly_income, job_satisfaction, work_life_balance, age) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+  group_by(variable) %>%
+  summarize(mean = mean(value), sd = sd(value)) %>%
+  pivot_longer(cols = c("mean", "sd"), names_to = "statistic", values_to = "value") %>%
+  pivot_wider(names_from = variable, values_from = value) %>%
+  kable()
+
+boxplot_data <- subset_data %>%
+  filter(gender != "") %>%
+  ggplot(aes(x = gender, y = years_in_current_role, fill = gender)) +
+  geom_boxplot() +
+  labs(x = "Gender", y = "Years in Current Role", title = "Years in Current Role by Gender") +
+  theme_minimal()
+
+histogram_data <- subset_data %>%
+  ggplot(aes(x = monthly_income)) +
+  geom_histogram(binwidth = 500, fill = "#69b3a2", color = "white") +
+  labs(x = "Monthly Income", y = "Count", title = "Histogram of Monthly Income") +
+  theme_minimal()
+
+summary_table
+boxplot_data
+histogram_data
+```
+
+
+
+
+   
+             
