@@ -19,6 +19,7 @@ library(ggplot2)
 library(dplyr)
 library(knitr)
 library(tidyr)
+library(scales)
 ```
 
 We upload the dataset in R, and make sure that the variable names that consist of more than 1 word, there will be placed an _ between the words. 
@@ -130,9 +131,22 @@ histogram_data <- subset_data %>%
   labs(x = "Monthly Income", y = "Count", title = "Histogram of Monthly Income") +
   theme_minimal()
 
+job_counts <- subset_data %>%
+  group_by(job_role) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+plot_job_role <-  ggplot(job_counts, aes(x = "", y = count, fill = job_role)) +
+                  geom_bar(stat = "identity", width = 1) +
+                  coord_polar(theta = "y") +
+                  labs(title = "Counts of Job Roles") +
+                  theme_void() +
+                  theme(legend.position = "bottom")
+
 summary_table
 boxplot_data
 histogram_data
+plot_job_role
 ```
 
 
