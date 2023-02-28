@@ -106,7 +106,7 @@ We continue by making a selection of some of the variables, which we selected to
 
 ```{r}
 subset_data <- data %>%
-  select(years_in_current_role, monthly_income, job_satisfaction, work_life_balance, age, gender)
+  select(years_in_current_role, job_role, monthly_income, job_satisfaction, work_life_balance, age, gender)
 
 summary_table <- subset_data %>%
   select(years_in_current_role, monthly_income, job_satisfaction, work_life_balance, age) %>%

@@ -460,7 +460,7 @@ selected to use in our analysis. We made this selection by going through
 literature, and see which according to them, had a significant influence
 on the attrition rate.</p>
 <pre class="r"><code>subset_data &lt;- data %&gt;%
-  select(years_in_current_role, monthly_income, job_satisfaction, work_life_balance, age, gender)
+  select(years_in_current_role, job_role, monthly_income, job_satisfaction, work_life_balance, age, gender)
 
 summary_table &lt;- subset_data %&gt;%
   select(years_in_current_role, monthly_income, job_satisfaction, work_life_balance, age) %&gt;%
