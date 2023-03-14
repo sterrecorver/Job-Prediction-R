@@ -23,6 +23,7 @@ library(scales)
 library(tidymodels)
 library(rpart)
 library(ggcorrplot)
+library(corrplot)
 ```
 
 We upload the dataset in R, and make sure that the variable names that consist of more than 1 word, there will be placed an _ between the words. 
@@ -241,53 +242,67 @@ print(paste0("Accuracy: ", round(accuracy, 2)))
 
 
 ```
+
 ```{r}
-# Create a copy of the original dataset
-df2 <- df
+# Load the necessary package
+library(dplyr)
 
-# Convert categorical variables to factors
-df2$job_role <- as.factor(df2$job_role)
-df2$gender <- as.factor(df2$gender)
+# Create a new binary variable indicating if job level is lower than education level
+df <- df %>%
+  mutate(job_level_below_education = ifelse(job_level < education, 1, 0))
 
-# One-hot encode the categorical variables
-df2 <- df2 %>%
-  mutate(job_role = as.numeric(job_role),
-         gender = as.numeric(gender))
+# Build a logistic regression model to predict attrition 
+model <- glm(attrition ~ job_level_below_education, data = df, family = binomial())
 
-# Calculate the correlation matrix
-corr_matrix <- cor(df2, use = "pairwise.complete.obs")
+# Display model summary
+summary(model)
 
-# Create a correlation plot using ggcorrplot
-ggcorrplot(corr_matrix,
-           type = "upper", # plot only the upper triangle
-           lab = TRUE, # show variable labels
-           lab_size = 3, # set label font size
-           colors = c("#6D9EC1", "#FFFFFF", "#E46726"), # set color scheme
-           title = "Correlation plot for dataset df")
-
-#In this code, we first create a copy of the original dataset df called df2. We then convert the categorical variables job_role and gender to factors, and use the mutate function from the dplyr package to one-hot encode them as numeric variables.
-
-#We then calculate the correlation matrix for df2 using the cor function, and create a correlation plot using ggcorrplot as before.
-
-#Note that one-hot encoding can result in a larger number of variables, which may make the correlation matrix and plot more difficult to interpret. You may want to consider other techniques for handling categorical variables, such as grouping or binning, depending on the specific needs of your analysis.
-
-
-
-
-
+# Calculate the number of people with attrition = 1 who also have job_level_below_education = 1
+n <- sum(df$attrition == 1 & df$job_level_below_education == 1)
+cat("Number of people with attrition = 1 and job_level_below_education = 1:", n)
 
 ```
+
 ```{r}
-# Select variables to include in the correlation plot
-vars <- c("attrition", "years_in_current_role", "job_role", "monthly_income", 
-          "job_satisfaction", "work_life_balance", "age", "gender")
+# create a contingency table
+table(df$attrition, df$job_level_below_education)
 
-# Compute the correlation matrix for selected variables
-cor_matrix <- cor(df[, vars], use = "pairwise.complete.obs")
+# create a mosaic plot
+mosaicplot(table(df$attrition, df$job_level_below_education), 
+           main = "Attrition vs. Job Level Below Education", 
+           color = c("#00BFC4", "#F8766D"), 
+           ylab = "Attrition", xlab = "Job Level Below Education")
 
-# Create a correlation plot
-corrplot(cor_matrix, type = "upper", method = "color", 
-         tl.col = "black", tl.srt = 45, tl.cex = 0.8, 
-         addCoef.col = "black", addCoef.cex = 0.6)
 ```
+
+```{r}
+ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) + 
+  geom_bar(position = "fill") +
+  facet_wrap(~education) +
+  labs(x = "Job Level", y = "Proportion", fill = "Attrition") +
+  scale_fill_manual(values = c("green", "red"), labels = c("No", "Yes"))
+```
+
+```{r}
+library(corrplot)
+
+# Define color palette
+my_colors <- colorRampPalette(c("#009E73", "#F0E442", "#0072B2"))(100)
+
+# Set graphical parameters
+par(mar = c(0, 0, 0, 0), bg = "#F7FBFF")
+
+# Plot correlation matrix with customized parameters
+corrplot(cor(df[,numerical]), method="circle", order="hclust",
+         col=my_colors, tl.col="#696969", tl.srt=45, tl.cex=0.8,
+         addCoef.col="#696969", addCoef.cex=0.6)
+```
+
+```{r}
+library(corrplot)
+col <- colorRampPalette(c("#4B0082", "#00FF00", "#FFA500", "#FF0000"))(100)
+corrplot.mixed(cor(df[,categorical]), lower.col = col, upper.col = "grey", tl.col = "black",tl.cex=0.8, tl.srt=45,tl.pos = "lt", number.cex = 0.7)
+
+```
+
 
