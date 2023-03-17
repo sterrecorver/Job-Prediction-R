@@ -22,6 +22,7 @@ library(tidyr)
 library(scales)
 library(tidymodels)
 library(rpart)
+library(rpart.plot)
 library(ggcorrplot)
 library(corrplot)
 ```
@@ -200,22 +201,6 @@ glimpse(hr_data_juiced)
 ```
 
 ```{r}
-# Define a function for post-EDA data processing
-post_eda_processing <- function(tbl) {
-  tbl %>%
-    mutate(total_satisfaction = rowSums(select(., environment_satisfaction:job_involvement))) %>%
-    select(-c(distance_from_home, hourly_rate, daily_rate, monthly_rate,
-              percent_salary_hike, training_times_last_year, years_at_company))
-}
-
-# Apply the post-EDA processing function to the `hr`, `train`, and `test` data frames
-df <- post_eda_processing(df)
-train <- post_eda_processing(train)
-test <- post_eda_processing(test)
-
-```
-
-```{r}
 # Build the decision tree model
 dectreemodel <- rpart(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
                data = train,
@@ -284,8 +269,6 @@ ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) +
 ```
 
 ```{r}
-library(corrplot)
-
 # Define color palette
 my_colors <- colorRampPalette(c("#009E73", "#F0E442", "#0072B2"))(100)
 
@@ -295,14 +278,22 @@ par(mar = c(0, 0, 0, 0), bg = "#F7FBFF")
 # Plot correlation matrix with customized parameters
 corrplot(cor(df[,numerical]), method="circle", order="hclust",
          col=my_colors, tl.col="#696969", tl.srt=45, tl.cex=0.8,
-         addCoef.col="#696969", addCoef.cex=0.6)
+         addCoef.col="#333333", addCoefasPercent=TRUE)
 ```
 
 ```{r}
-library(corrplot)
-col <- colorRampPalette(c("#4B0082", "#00FF00", "#FFA500", "#FF0000"))(100)
-corrplot.mixed(cor(df[,categorical]), lower.col = col, upper.col = "grey", tl.col = "black",tl.cex=0.8, tl.srt=45,tl.pos = "lt", number.cex = 0.7)
+# Create a new data frame with one-hot encoded variables
+df_encoded <- as.data.frame(model.matrix(~., data=df[,categorical]))
 
+# Generate a correlation plot using the encoded data
+col <- colorRampPalette(c("#4B0082", "#00FF00", "#FFA500", "#FF0000"))(100)
+corrplot.mixed(cor(df_encoded), lower.col = col, upper.col = "blue", tl.col = "black", tl.cex=0.8, tl.srt=45, tl.pos = "lt", number.cex = 0.4)
+
+```
+
+```{r}
+library(GGally)
+ggpairs(df[,ordinal], lower=list(continuous="smooth", combo="facethistdensity"), diag=list(continuous="barDiag"))
 ```
 
 
