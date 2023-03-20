@@ -30,11 +30,11 @@ library(corrplot)
 We upload the dataset in R, and make sure that the variable names that consist of more than 1 word, there will be placed an _ between the words. 
 
 ```{r}
-data <- read.csv("C:/Users/timva/Downloads/Job dataset/WA_Fn-UseC_-HR-Employee-Attrition.csv") %>% clean_names()
+data <- read.csv("job_search_dataset.csv") %>% clean_names()
 ```
 
-##Pre-processing
-Remove the variabels "...." since they have hte.
+**Pre-processing**
+Remove the variables employee_count, standard_hours and over18 since they have the same value for all the observations so they won't be interesting to use in our prediction.
 
 ```{r}
 df <- subset(data, select = -c(employee_count, standard_hours, over18))
@@ -49,7 +49,6 @@ df <- df %>%
   mutate(across(c("attrition","over_time"),
                 ~ as.factor(.)))
 ```
-
 
 We continue by reclassifying the nominal and the ordinal variables as factors. For the ordinal vectors we make sure that the order is kept.
 
@@ -68,8 +67,7 @@ df <- df %>%
                                              "Travel_Rarely","Travel_Frequently")))
 ```
 
-
-Now we put the different variables into groups
+Now we put the different types of variables into groups.
 ```{r}
 numerical <- c("age", "distance_from_home","hourly_rate",
                "daily_rate", "monthly_rate","monthly_income",
@@ -88,6 +86,7 @@ ordinal <- c("environment_satisfaction", "job_satisfaction",
              "stock_option_level")
 ```
 
+Then we continue by creating a train/test split. We set the seed for reproducibility.
 ```{r}
 #creating a train/test split
 
@@ -102,7 +101,7 @@ test <- testing(split)
 ```
 
 
-##Descriptive analysis
+**Descriptive analysis**
 We start by looking at the dependent variable in our regression, which is the attrition rate.This is the number of employees that have left te firm divided by the total number of employees at the firm.
 
 ```{r}
@@ -121,7 +120,7 @@ pie_chart <- ggplot(attrition_counts, aes(x = "", y = n, fill = attrition)) +
 pie_chart
 ```
 
-We continue by making a selection of some of the variables, which we selected to use in our analysis. We made this selection by going through literature, and see which according to them, had a significant influence on the attrition rate.
+We continue by making a selection of some of the variables, which we selected to use for our analysis on job search prediction. We made this selection by going through literature, and see which according to them, had the most significant influence on the attrition rate. Below you see visualisations of some of those selected variables.
 
 ```{r}
 subset_data <- data %>%
@@ -154,18 +153,87 @@ job_counts <- subset_data %>%
   summarize(count = n()) %>%
   arrange(desc(count))
 
-plot_job_role <-  ggplot(job_counts, aes(x = "", y = count, fill = job_role)) +
-                  geom_bar(stat = "identity", width = 1) +
-                  coord_polar(theta = "y") +
-                  labs(title = "Counts of Job Roles") +
-                  theme_void() +
-                  theme(legend.position = "bottom")
-
+job_role_table <- kable(job_counts, 
+                         caption = "Counts of Job Roles", 
+                         col.names = c("Job Role", "Count"))
 summary_table
 boxplot_data
 histogram_data
-plot_job_role
+job_role_table
 ```
+
+Next we continue our analysis on job search prediction by building a model around it.
+Here, we use the rpart library to build a decision tree model, which can be visualized using the rpart.plot library. We convert the "gender" variable to a factor, split the data into training and testing sets, and fit the model on the training data. We then predict on the testing set and evaluate the model using a confusion matrix and accuracy metric. Note that this is just one possible solution, and there are many other models and techniques you can use to predict "attrition" with these variables.
+
+```{r}
+# Build the decision tree model
+dectreemodel <- rpart(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
+               data = train,
+               method = "class")
+
+# Plot the decision tree
+rpart.plot(dectreemodel)
+
+# Predict on the testing set
+predictions <- predict(dectreemodel, newdata = test, type = "class")
+
+# Evaluate the model
+confusion_matrix <- table(predictions, test$attrition)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(confusion_matrix)
+print(paste0("Accuracy: ", round(accuracy, 2)))
+
+```
+
+Here we see that the decision tree has an accuracy of around 82%. Since we are not satisfied by this result, we want to to further develop our prediction. We start by looking whether there are variables that have a significant influence on attrition which we may not have included in our analysis. 
+In order to find this out, .....
+
+
+As we tought that the job level compared to the educational level might influence whether an employee will churn or not, we make a new variable which shows this relation. 
+```{r}
+# Load the necessary package
+library(dplyr)
+
+# Create a new binary variable indicating if job level is lower than education level
+df <- df %>%
+  mutate(job_level_below_education = ifelse(job_level < education, 1, 0))
+
+# Build a logistic regression model to predict attrition 
+model <- glm(attrition ~ job_level_below_education, data = df, family = binomial())
+
+# Display model summary
+summary(model)
+
+# Calculate the number of people with attrition = 1 who also have job_level_below_education = 1
+n <- sum(df$attrition == 1 & df$job_level_below_education == 1)
+cat("Number of people with attrition = 1 and job_level_below_education = 1:", n)
+
+```
+
+```{r}
+# create a contingency table
+table(df$attrition, df$job_level_below_education)
+
+# create a mosaic plot
+mosaicplot(table(df$attrition, df$job_level_below_education), 
+           main = "Attrition vs. Job Level Below Education", 
+           color = c("#00BFC4", "#F8766D"), 
+           ylab = "Attrition", xlab = "Job Level Below Education")
+
+```
+
+
+
+```{r}
+ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) + 
+  geom_bar(position = "fill") +
+  facet_wrap(~education) +
+  labs(x = "Job Level", y = "Proportion", fill = "Attrition") +
+  scale_fill_manual(values = c("green", "red"), labels = c("No", "Yes"))
+```
+
+
+
 
 ```{r}
 # Define the recipe object with the target variable and all predictors
@@ -200,73 +268,6 @@ glimpse(hr_data_juiced)
 
 ```
 
-```{r}
-# Build the decision tree model
-dectreemodel <- rpart(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
-               data = train,
-               method = "class")
-
-# Plot the decision tree
-rpart.plot(dectreemodel)
-
-# Predict on the testing set
-predictions <- predict(dectreemodel, newdata = test, type = "class")
-
-# Evaluate the model
-confusion_matrix <- table(predictions, test$attrition)
-accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
-print(confusion_matrix)
-print(paste0("Accuracy: ", round(accuracy, 2)))
-
-
-#Here, we use the rpart library to build a decision tree model, which can be visualized using the rpart.plot library. We convert the "gender" variable to a factor, split the data into training and testing sets, and fit the model on the training data. We then predict on the testing set and evaluate the model using a confusion matrix and accuracy metric. Note that this is just one possible solution, and there are many other models and techniques you can use to predict "attrition" with these variables.
-
-
-
-
-
-
-```
-
-```{r}
-# Load the necessary package
-library(dplyr)
-
-# Create a new binary variable indicating if job level is lower than education level
-df <- df %>%
-  mutate(job_level_below_education = ifelse(job_level < education, 1, 0))
-
-# Build a logistic regression model to predict attrition 
-model <- glm(attrition ~ job_level_below_education, data = df, family = binomial())
-
-# Display model summary
-summary(model)
-
-# Calculate the number of people with attrition = 1 who also have job_level_below_education = 1
-n <- sum(df$attrition == 1 & df$job_level_below_education == 1)
-cat("Number of people with attrition = 1 and job_level_below_education = 1:", n)
-
-```
-
-```{r}
-# create a contingency table
-table(df$attrition, df$job_level_below_education)
-
-# create a mosaic plot
-mosaicplot(table(df$attrition, df$job_level_below_education), 
-           main = "Attrition vs. Job Level Below Education", 
-           color = c("#00BFC4", "#F8766D"), 
-           ylab = "Attrition", xlab = "Job Level Below Education")
-
-```
-
-```{r}
-ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) + 
-  geom_bar(position = "fill") +
-  facet_wrap(~education) +
-  labs(x = "Job Level", y = "Proportion", fill = "Attrition") +
-  scale_fill_manual(values = c("green", "red"), labels = c("No", "Yes"))
-```
 
 ```{r}
 # Define color palette
