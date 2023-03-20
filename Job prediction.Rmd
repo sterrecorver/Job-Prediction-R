@@ -8,11 +8,11 @@ output:
       highlights: github
 ---
 
-```{r setup, include=FALSE}
+```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r echo=FALSE}
 library(janitor)
 library(tidyverse)
 library(ggplot2)
@@ -25,16 +25,17 @@ library(rpart)
 library(rpart.plot)
 library(ggcorrplot)
 library(corrplot)
+library(gridExtra)
 ```
 
 We upload the dataset in R, and make sure that the variable names that consist of more than 1 word, there will be placed an _ between the words. 
 
 ```{r}
-data <- read.csv("C:/Users/timva/Downloads/Job dataset/WA_Fn-UseC_-HR-Employee-Attrition.csv") %>% clean_names()
+data <- read.csv("job_search_dataset.csv") %>% clean_names()
 ```
 
-##Pre-processing
-Remove the variabels "...." since they have hte.
+**Pre-processing**
+Remove the variables employee_count, standard_hours and over18 since they have the same value for all the observations so they won't be interesting to use in our prediction.
 
 ```{r}
 df <- subset(data, select = -c(employee_count, standard_hours, over18))
@@ -49,7 +50,6 @@ df <- df %>%
   mutate(across(c("attrition","over_time"),
                 ~ as.factor(.)))
 ```
-
 
 We continue by reclassifying the nominal and the ordinal variables as factors. For the ordinal vectors we make sure that the order is kept.
 
@@ -68,15 +68,20 @@ df <- df %>%
                                              "Travel_Rarely","Travel_Frequently")))
 ```
 
-
-Now we put the different variables into groups
+Now we put the different types of variables into groups.
 ```{r}
 numerical <- c("age", "distance_from_home","hourly_rate",
-               "daily_rate", "monthly_rate","monthly_income",
-               "percent_salary_hike","years_at_company",
-               "years_in_current_role","years_since_last_promotion",
-               "years_with_curr_manager","total_working_years",
-               "num_companies_worked","training_times_last_year") 
+               "daily_rate","monthly_rate","monthly_income",
+               "percent_salary_hike","years_at_company", "years_in_current_role","years_since_last_promotion",
+               "years_with_curr_manager","total_working_years","num_companies_worked","training_times_last_year")
+
+numerical1 <- c("age", "distance_from_home","hourly_rate",
+               "daily_rate")
+numerical2 <- c("monthly_rate","monthly_income",
+               "percent_salary_hike","years_at_company")
+numerical3 <- c("years_in_current_role","years_since_last_promotion",
+               "years_with_curr_manager","total_working_years")
+numerical4 <- c("num_companies_worked","training_times_last_year") 
 
 categorical <- c("gender","over_time","department",
                  "education_field", "job_role", "marital_status")
@@ -88,6 +93,7 @@ ordinal <- c("environment_satisfaction", "job_satisfaction",
              "stock_option_level")
 ```
 
+Then we continue by creating a train/test split. We set the seed for reproducibility.
 ```{r}
 #creating a train/test split
 
@@ -102,7 +108,7 @@ test <- testing(split)
 ```
 
 
-##Descriptive analysis
+**Descriptive analysis**
 We start by looking at the dependent variable in our regression, which is the attrition rate.This is the number of employees that have left te firm divided by the total number of employees at the firm.
 
 ```{r}
@@ -121,7 +127,7 @@ pie_chart <- ggplot(attrition_counts, aes(x = "", y = n, fill = attrition)) +
 pie_chart
 ```
 
-We continue by making a selection of some of the variables, which we selected to use in our analysis. We made this selection by going through literature, and see which according to them, had a significant influence on the attrition rate.
+We continue by making a selection of some of the variables, which we selected to use for our analysis on job search prediction. We made this selection by going through literature, and see which according to them, had the most significant influence on the attrition rate. Below you see visualisations of some of those selected variables.
 
 ```{r}
 subset_data <- data %>%
@@ -154,51 +160,17 @@ job_counts <- subset_data %>%
   summarize(count = n()) %>%
   arrange(desc(count))
 
-plot_job_role <-  ggplot(job_counts, aes(x = "", y = count, fill = job_role)) +
-                  geom_bar(stat = "identity", width = 1) +
-                  coord_polar(theta = "y") +
-                  labs(title = "Counts of Job Roles") +
-                  theme_void() +
-                  theme(legend.position = "bottom")
-
+job_role_table <- kable(job_counts, 
+                         caption = "Counts of Job Roles", 
+                         col.names = c("Job Role", "Count"))
 summary_table
 boxplot_data
 histogram_data
-plot_job_role
+job_role_table
 ```
 
-```{r}
-# Define the recipe object with the target variable and all predictors
-hr_recipe <- recipe(attrition ~ ., data = train) 
-
-# Update the role of the employee_number variable to "ID"
-hr_recipe <- update_role(hr_recipe, "employee_number", new_role = "ID")
-
-# Normalize the numeric variables age, monthly_income, and total_satisfaction
-hr_recipe <- step_normalize(hr_recipe, all_numeric_predictors())
-
-# Create dummy variables for all nominal predictors using one-hot encoding
-hr_recipe <- step_dummy(hr_recipe, all_nominal_predictors(), one_hot = TRUE)
-
-# Remove near-zero variance predictors among the nominal variables
-hr_recipe <- step_nzv(hr_recipe, all_nominal_predictors())
-
-# Remove highly correlated predictors among all variables
-hr_recipe <- step_corr(hr_recipe, -all_outcomes())
-
-```
-
-```{r}
-# Prepare the recipe for use with the training data
-hr_recipe_prep <- prep(hr_recipe, training = train)
-
-# Apply the recipe to the training data and extract the preprocessed data
-hr_data_juiced <- juice(hr_recipe_prep)
-
-# Print the summary of the preprocessed data
-glimpse(hr_data_juiced)
-
-```
+Next we continue our analysis on job search prediction by building a model around it.
+Here, we use the rpart library to build a decision tree model, which can be visualized using the rpart.plot library. We convert the "gender" variable to a factor, split the data into training and testing sets, and fit the model on the training data. We then predict on the testing set and evaluate the model using a confusion matrix and accuracy metric. Note that this is just one possible solution, and there are many other models and techniques you can use to predict "attrition" with these variables.
 
 ```{r}
 # Build the decision tree model
@@ -218,15 +190,155 @@ accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(confusion_matrix)
 print(paste0("Accuracy: ", round(accuracy, 2)))
 
-
-#Here, we use the rpart library to build a decision tree model, which can be visualized using the rpart.plot library. We convert the "gender" variable to a factor, split the data into training and testing sets, and fit the model on the training data. We then predict on the testing set and evaluate the model using a confusion matrix and accuracy metric. Note that this is just one possible solution, and there are many other models and techniques you can use to predict "attrition" with these variables.
-
+```
 
 
 
+Here we see that the decision tree has an accuracy of around 82%. Since we are not satisfied by this result, we want to to further develop our prediction. We start by looking whether there are variables that have a significant influence on attrition which we may not have included in our analysis. 
+In order to find this out, we visualize all the the variables to see whether te variables have an influence on the attritionrate.
 
+We start with the numerical variabels. We visualize them by plotting a density function and differentate between attrition being 0 or 1.
+
+```{r}
+# Generate the density plots
+plot_density <- function(numerical1,var1,var2){
+  var1name <- as.name(var1)
+  numerical1 %>%
+    ggplot(aes(x = {{var1name}},fill = {{var2}})) + 
+    geom_density(alpha = 0.5,color = "black") +
+    geom_vline(data = df %>%
+                 group_by({{var2}}) %>%
+                 summarize(mean.grp = mean({{var1name}})),
+               aes(xintercept = mean.grp,color = attrition),
+               linetype = "dashed",size = 1) +
+    labs(caption = paste0("Lines represent average by group"),
+         y = element_blank(), x = element_blank(), title = "") +
+    facet_wrap(vars({{var2}}))
+}
 
 ```
+
+
+```{r}
+# set up the general "settings" for the density plots
+nrow <- 2
+ncol <- 2
+colors <- c("blue","red")
+
+# Generate the density plots (part 1)
+plots <- lapply(numerical1, function(v) {
+  ggplot(df, aes_string(x = v, fill = "attrition")) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = colors) +
+    ggtitle(v) +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5),
+          axis.title = element_text(size = 10),
+          legend.position = "bottom",
+          legend.title = element_blank(),
+          legend.text = element_text(size = 10))
+})
+
+# Save the density plots to a PDF file
+ggsave("densityplots.pdf", plot = gridExtra::grid.arrange(grobs = plots, nrow = nrow, ncol = ncol), width = 20, height = 20)
+```
+
+```{r}
+# Generate the density plots (part 2)
+
+plots <- lapply(numerical2, function(v) {
+  ggplot(df, aes_string(x = v, fill = "attrition")) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = colors) +
+    ggtitle(v) +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5),
+          axis.title = element_text(size = 10),
+          legend.position = "bottom",
+          legend.title = element_blank(),
+          legend.text = element_text(size = 10))
+})
+
+# Save the density plots to a PDF file
+ggsave("densityplots.pdf", plot = gridExtra::grid.arrange(grobs = plots, nrow = nrow, ncol = ncol), width = 20, height = 20)
+```
+```{r}
+# Generate the density plots (part 3)
+
+plots <- lapply(numerical3, function(v) {
+  ggplot(df, aes_string(x = v, fill = "attrition")) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = colors) +
+    ggtitle(v) +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5),
+          axis.title = element_text(size = 10),
+          legend.position = "bottom",
+          legend.title = element_blank(),
+          legend.text = element_text(size = 10))
+})
+
+# Save the density plots to a PDF file
+ggsave("densityplots.pdf", plot = gridExtra::grid.arrange(grobs = plots, nrow = nrow, ncol = ncol), width = 20, height = 20)
+```
+
+```{r}
+# Generate the density plots (part 4)
+
+plots <- lapply(numerical4, function(v) {
+  ggplot(df, aes_string(x = v, fill = "attrition")) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = colors) +
+    ggtitle(v) +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5),
+          axis.title = element_text(size = 10),
+          legend.position = "bottom",
+          legend.title = element_blank(),
+          legend.text = element_text(size = 10))
+})
+
+# Save the density plots to a PDF file
+ggsave("densityplots.pdf", plot = gridExtra::grid.arrange(grobs = plots, nrow = nrow, ncol = ncol), width = 20, height = 20)
+```
+
+Now we continue by visualising the ordinal variables. We decided upon visualising those in a 
+
+```{r}
+# Create list of plots for ordinal variables
+plot_list <- list()
+
+for (col in names(ordinal)) {
+  plot <- ordinal %>%
+    ggplot(aes(x = .data[[col]], fill = attrition)) +
+    geom_density(alpha = 0.5, color = "black") +
+    geom_vline(data = ordinal %>%
+                 group_by(attrition) %>%
+                 summarize(mean_grp = mean(.data[[col]])),
+               aes(xintercept = mean_grp, color = attrition),
+               linetype = "dashed", size = 1) +
+    labs(caption = paste0("Lines represent average by group"),
+         y = element_blank(), x = col, title = paste0("Density Plot of ", col)) +
+    theme_minimal()
+  
+  plot_list[[col]] <- plot
+}
+
+# Arrange plots in grid
+
+```
+
+
+
+
+
+
+
+
+
+
+
+As we tought that the job level compared to the educational level might influence whether an employee will churn or not, we make a new variable which shows this relation. 
 
 ```{r}
 # Load the necessary package
@@ -260,6 +372,7 @@ mosaicplot(table(df$attrition, df$job_level_below_education),
 
 ```
 
+
 ```{r}
 ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) + 
   geom_bar(position = "fill") +
@@ -291,9 +404,5 @@ corrplot.mixed(cor(df_encoded), lower.col = col, upper.col = "blue", tl.col = "b
 
 ```
 
-```{r}
-library(GGally)
-ggpairs(df[,ordinal], lower=list(continuous="smooth", combo="facethistdensity"), diag=list(continuous="barDiag"))
-```
 
 
