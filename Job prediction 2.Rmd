@@ -8,11 +8,11 @@ output:
       highlights: github
 ---
 
-```{r setup, echo=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r echo=FALSE}
+```{r}
 library(janitor)
 library(tidyverse)
 library(ggplot2)
@@ -189,10 +189,7 @@ confusion_matrix <- table(predictions, test$attrition)
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(confusion_matrix)
 print(paste0("Accuracy: ", round(accuracy, 2)))
-
 ```
-
-
 
 Here we see that the decision tree has an accuracy of around 82%. Since we are not satisfied by this result, we want to to further develop our prediction. We start by looking whether there are variables that have a significant influence on attrition which we may not have included in our analysis. 
 In order to find this out, we visualize all the the variables to see whether te variables have an influence on the attritionrate.
@@ -328,14 +325,8 @@ for (col in names(ordinal)) {
 
 ```
 
-
-
-
-
-
-
-
-
+Here we see that the decision tree has an accuracy of around 82%. Since we are not satisfied by this result, we want to to further develop our prediction. We start by looking whether there are variables that have a significant influence on attrition which we may not have included in our analysis. 
+In order to find this out, .....
 
 
 As we tought that the job level compared to the educational level might influence whether an employee will churn or not, we make a new variable which shows this relation. 
@@ -368,7 +359,8 @@ table(df$attrition, df$job_level_below_education)
 mosaicplot(table(df$attrition, df$job_level_below_education), 
            main = "Attrition vs. Job Level Below Education", 
            color = c("#00BFC4", "#F8766D"), 
-           ylab = "Attrition", xlab = "Job Level Below Education")
+           ylab = "Attrition", xlab = "Job Level Below Education",
+           labeling = function(x) paste0(formatC(100*x, digits=2, format="f"), "%"))
 
 ```
 
@@ -378,7 +370,7 @@ ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) +
   geom_bar(position = "fill") +
   facet_wrap(~education) +
   labs(x = "Job Level", y = "Proportion", fill = "Attrition") +
-  scale_fill_manual(values = c("green", "red"), labels = c("No", "Yes"))
+  scale_fill_manual(values = c("#009E73", "#F0E442"), labels = c("No", "Yes"))
 ```
 
 ```{r}
@@ -404,5 +396,137 @@ corrplot.mixed(cor(df_encoded), lower.col = col, upper.col = "blue", tl.col = "b
 
 ```
 
+
+```{r}
+# create a new variable "total_satisfaction" by summing up multiple satisfaction variables
+df <- df %>%
+  mutate(total_satisfaction = 
+           as.numeric(environment_satisfaction) +
+           as.numeric(job_satisfaction) +
+           as.numeric(relationship_satisfaction) +
+           as.numeric(work_life_balance) +
+           as.numeric(job_involvement))
+
+```
+
+
+
+
+
+
+
+```{r}
+library(randomForest)
+
+# Train the Random Forest model
+rf_model <- randomForest(attrition ~ ., data = train, importance = TRUE)
+
+# Predict the attrition variable on the test set
+pred_attrition <- predict(rf_model, newdata = test)
+
+# Evaluate the model using the confusion matrix
+conf_matrix <- table(pred_attrition, test$attrition)
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+
+# Print the results
+print(rf_model)
+print(conf_matrix)
+print(paste("Accuracy: ", round(accuracy, 2)))
+```
+
+```{r}
+# Build the decision tree model
+dectreemodel <- rpart(attrition ~ years_in_current_role + job_role + monthly_income + over_time + marital_status + job_level + business_travel + stock_option_level + total_working_years + age + years_at_company,
+               data = train,
+               method = "class")
+
+# Plot the decision tree
+rpart.plot(dectreemodel)
+
+# Predict on the testing set
+predictions <- predict(dectreemodel, newdata = test, type = "class")
+
+# Evaluate the model
+confusion_matrix <- table(predictions, test$attrition)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(confusion_matrix)
+print(paste0("Accuracy: ", round(accuracy, 2)))
+```
+
+```{r}
+# Calculate the accuracy
+accuracy <- round(mean(predictions == test$attrition), 2)
+
+# Create a data frame with the accuracy information
+accuracy_df <- data.frame(Type = c("Correct", "Incorrect"), 
+                          Proportion = c(accuracy, 1-accuracy))
+
+# Create a bar chart
+ggplot(data = accuracy_df, aes(x = Type, y = Proportion, fill = Type)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("blue", "lightblue")) +
+  labs(title = "Decision Tree Model Accuracy", x = NULL, y = "Proportion")
+```
+
+```{r}
+library(caret)
+
+# Specify the training control for cross-validation
+ctrl <- trainControl(method = "cv", number = 10, verboseIter = FALSE)
+
+# Train the decision tree model with cross-validation and tuning
+set.seed(123)
+dectreemodel <- train(attrition ~ years_in_current_role + job_role + monthly_income + over_time + marital_status + job_level + business_travel + stock_option_level + total_working_years + age + years_at_company,
+                      data = train,
+                      method = "rpart",
+                      trControl = ctrl,
+                      tuneLength = 10)
+
+# Plot the decision tree
+rpart.plot(dectreemodel$finalModel)
+
+# Predict on the testing set
+predictions <- predict(dectreemodel, newdata = test)
+
+# Evaluate the model
+confusion_matrix <- table(predictions, test$attrition)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(confusion_matrix)
+print(paste0("Accuracy: ", round(accuracy, 2)))
+
+```
+```{r}
+# Fit the logistic regression model
+logisticmodel <- glm(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
+                     data = train,
+                     family = binomial())
+
+# Predict on the testing set
+probabilities <- predict(logisticmodel, newdata = test, type = "response")
+
+# Convert probabilities to binary predictions
+predictions <- ifelse(probabilities > 0.5, 1, 0)
+
+# Evaluate the model
+confusion_matrix <- table(predictions, test$attrition)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(confusion_matrix)
+print(paste0("Accuracy: ", round(accuracy, 2)))
+
+```
+
+```{r}
+# Load the pROC package
+library(pROC)
+
+# Calculate the ROC curve
+roc_curve <- roc(test$attrition, probabilities)
+
+# Plot the ROC curve
+plot(roc_curve, main = "ROC Curve for Attrition Prediction",
+     xlab = "False Positive Rate", ylab = "True Positive Rate")
+abline(0, 1, lty = 2) # Add a diagonal line for reference
+
+```
 
 
