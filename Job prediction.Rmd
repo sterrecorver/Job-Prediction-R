@@ -26,6 +26,7 @@ library(rpart.plot)
 library(ggcorrplot)
 library(corrplot)
 library(gridExtra)
+library(glue)
 ```
 
 We upload the dataset in R, and make sure that the variable names that consist of more than 1 word, there will be placed an _ between the words. 
@@ -72,8 +73,9 @@ Now we put the different types of variables into groups.
 ```{r}
 numerical <- c("age", "distance_from_home","hourly_rate",
                "daily_rate","monthly_rate","monthly_income",
-               "percent_salary_hike","years_at_company", "years_in_current_role","years_since_last_promotion",
-               "years_with_curr_manager","total_working_years","num_companies_worked","training_times_last_year")
+               "percent_salary_hike","years_at_company",     "years_in_current_role","years_since_last_promotion",
+               "years_with_curr_manager","total_working_years",
+               "num_companies_worked","training_times_last_year")
 
 numerical1 <- c("age", "distance_from_home","hourly_rate",
                "daily_rate")
@@ -85,6 +87,12 @@ numerical4 <- c("num_companies_worked","training_times_last_year")
 
 categorical <- c("gender","over_time","department",
                  "education_field", "job_role", "marital_status")
+
+ordinal1 <- c("environment_satisfaction", "job_satisfaction",
+             "relationship_satisfaction","work_life_balance")
+ordinal2 <-  c("job_involvement","performance_rating",
+             "business_travel", "education")
+ordinal3 <- c("job_level","stock_option_level")
 
 ordinal <- c("environment_satisfaction", "job_satisfaction",
              "relationship_satisfaction","work_life_balance",
@@ -200,33 +208,11 @@ In order to find this out, we visualize all the the variables to see whether te 
 We start with the numerical variabels. We visualize them by plotting a density function and differentate between attrition being 0 or 1.
 
 ```{r}
-# Generate the density plots
-plot_density <- function(numerical1,var1,var2){
-  var1name <- as.name(var1)
-  numerical1 %>%
-    ggplot(aes(x = {{var1name}},fill = {{var2}})) + 
-    geom_density(alpha = 0.5,color = "black") +
-    geom_vline(data = df %>%
-                 group_by({{var2}}) %>%
-                 summarize(mean.grp = mean({{var1name}})),
-               aes(xintercept = mean.grp,color = attrition),
-               linetype = "dashed",size = 1) +
-    labs(caption = paste0("Lines represent average by group"),
-         y = element_blank(), x = element_blank(), title = "") +
-    facet_wrap(vars({{var2}}))
-}
-
-```
-
-
-```{r}
 # set up the general "settings" for the density plots
-nrow <- 2
-ncol <- 2
 colors <- c("blue","red")
 
 # Generate the density plots (part 1)
-plots <- lapply(numerical1, function(v) {
+plots_n1 <- lapply(numerical1, function(v) {
   ggplot(df, aes_string(x = v, fill = "attrition")) +
     geom_density(alpha = 0.5) +
     scale_fill_manual(values = colors) +
@@ -239,14 +225,14 @@ plots <- lapply(numerical1, function(v) {
           legend.text = element_text(size = 10))
 })
 
-# Save the density plots to a PDF file
-ggsave("densityplots.pdf", plot = gridExtra::grid.arrange(grobs = plots, nrow = nrow, ncol = ncol), width = 20, height = 20)
+# show the density plots in a 2x2 grid
+gridExtra::grid.arrange(grobs = plots_n1, ncol = 2)
 ```
 
 ```{r}
 # Generate the density plots (part 2)
 
-plots <- lapply(numerical2, function(v) {
+plots_n2 <- lapply(numerical2, function(v) {
   ggplot(df, aes_string(x = v, fill = "attrition")) +
     geom_density(alpha = 0.5) +
     scale_fill_manual(values = colors) +
@@ -259,13 +245,14 @@ plots <- lapply(numerical2, function(v) {
           legend.text = element_text(size = 10))
 })
 
-# Save the density plots to a PDF file
-ggsave("densityplots.pdf", plot = gridExtra::grid.arrange(grobs = plots, nrow = nrow, ncol = ncol), width = 20, height = 20)
+# show the density plots in a 2x2 grid
+gridExtra::grid.arrange(grobs = plots_n2, ncol = 2)
 ```
+
 ```{r}
 # Generate the density plots (part 3)
 
-plots <- lapply(numerical3, function(v) {
+plots_n3 <- lapply(numerical3, function(v) {
   ggplot(df, aes_string(x = v, fill = "attrition")) +
     geom_density(alpha = 0.5) +
     scale_fill_manual(values = colors) +
@@ -279,13 +266,13 @@ plots <- lapply(numerical3, function(v) {
 })
 
 # Save the density plots to a PDF file
-ggsave("densityplots.pdf", plot = gridExtra::grid.arrange(grobs = plots, nrow = nrow, ncol = ncol), width = 20, height = 20)
+gridExtra::grid.arrange(grobs = plots_n3, ncol = 2)
 ```
 
 ```{r}
 # Generate the density plots (part 4)
 
-plots <- lapply(numerical4, function(v) {
+plots_n4 <- lapply(numerical4, function(v) {
   ggplot(df, aes_string(x = v, fill = "attrition")) +
     geom_density(alpha = 0.5) +
     scale_fill_manual(values = colors) +
@@ -298,43 +285,79 @@ plots <- lapply(numerical4, function(v) {
           legend.text = element_text(size = 10))
 })
 
-# Save the density plots to a PDF file
-ggsave("densityplots.pdf", plot = gridExtra::grid.arrange(grobs = plots, nrow = nrow, ncol = ncol), width = 20, height = 20)
+# show the density plots in a 2x2 grid
+gridExtra::grid.arrange(grobs = plots_n4, ncol = 2)
 ```
 
-Now we continue by visualising the ordinal variables. We decided upon visualising those in a 
+Now we continue by visualising the ordinal variables. We decided upon visualising those using stacked bar charts.
 
 ```{r}
-# Create list of plots for ordinal variables
-plot_list <- list()
-
-for (col in names(ordinal)) {
-  plot <- ordinal %>%
-    ggplot(aes(x = .data[[col]], fill = attrition)) +
-    geom_density(alpha = 0.5, color = "black") +
-    geom_vline(data = ordinal %>%
-                 group_by(attrition) %>%
-                 summarize(mean_grp = mean(.data[[col]])),
-               aes(xintercept = mean_grp, color = attrition),
-               linetype = "dashed", size = 1) +
-    labs(caption = paste0("Lines represent average by group"),
-         y = element_blank(), x = col, title = paste0("Density Plot of ", col)) +
-    theme_minimal()
-  
-  plot_list[[col]] <- plot
+summarise_att <- function(tbl) {
+  tbl %>%
+    summarise(n = n(),
+              att = sum(attrition == 1),
+              pct_att = att / n)
 }
 
-# Arrange plots in grid
+plot_bar <- function(tbl, var1) {
+  var1name <- as.name(var1)
+  tbl %>%
+    group_by({{ var1name }}) %>%
+    summarise_att() %>%
+    mutate({{ var1name }} := paste0({{ var1name }}, "\n(", n, ")")) %>%
+    ggplot(aes(x = {{ var1name }}, y = pct_att)) +
+    geom_col(aes(fill = {{ var1name }}), width = 0.75, color = "black") +
+    geom_hline(yintercept = mean(tbl$attrition), linetype = 3) +
+    theme(legend.position = "none") +
+    scale_y_continuous(labels = scales::percent_format()) +
+    labs(title = paste("Attrition rate by", var1),
+         x = NULL,
+         y = "Attrition rate (%)")
+}
 
+
+# Create a list of the plots
+plots_o1 <- lapply(ordinal1, function(x) plot_bar(df, x))
+plots_o2 <- lapply(ordinal2, function(x) plot_bar(df, x))
+plots_o3 <- lapply(ordinal3, function(x) plot_bar(df, x))
+
+# Arrange the plots in a 2x5 grid
+grid.arrange(grobs = plots_o1, ncol = 2)
+grid.arrange(grobs = plots_o2, ncol = 2)
+grid.arrange(grobs = plots_o3, ncol = 2)
 ```
 
+Now we end with the categorical variables.
+```{r}
+summarise_att <- function(tbl) {
+  tbl %>%
+    summarise(n = n(),
+              att = sum(attrition == 1),
+              pct_att = att / n)
+}
 
+plot_bar <- function(tbl, var1) {
+  var1name <- as.name(var1)
+  tbl %>%
+    group_by({{ var1name }}) %>%
+    summarise_att() %>%
+    mutate({{ var1name }} := paste0({{ var1name }}, "\n(", n, ")")) %>%
+    ggplot(aes(x = {{ var1name }}, y = pct_att)) +
+    geom_col(aes(fill = {{ var1name }}), width = 0.75, color = "black") +
+    geom_hline(yintercept = mean(tbl$attrition), linetype = 3) +
+    theme(legend.position = "none") +
+    scale_y_continuous(labels = scales::percent_format()) +
+    labs(title = paste("Attrition rate by", var1),
+         x = NULL,
+         y = "Attrition rate (%)")
+}
 
+plot_bar(df,categorical[1])
+plot_bar(df,categorical[2])
+plot_bar(df,categorical[3])
+plot_bar(df,categorical[4])
 
-
-
-
-
+```
 
 
 
