@@ -352,10 +352,8 @@ plot_bar <- function(tbl, var1) {
          y = "Attrition rate (%)")
 }
 
-plot_bar(df,categorical[1])
-plot_bar(df,categorical[2])
-plot_bar(df,categorical[3])
-plot_bar(df,categorical[4])
+plots_c <- lapply(categorical, function(x) plot_bar(df, x))
+grid.arrange(grobs = plots_c, ncol = 2)
 
 ```
 
