@@ -399,7 +399,7 @@ ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) +
   geom_bar(position = "fill") +
   facet_wrap(~education) +
   labs(x = "Job Level", y = "Proportion", fill = "Attrition") +
-  scale_fill_manual(values = c("green", "red"), labels = c("No", "Yes"))
+  scale_fill_manual(values = c("#00BFC4", "#F8766D"), labels = c("No", "Yes"))
 ```
 
 ```{r}
@@ -424,6 +424,58 @@ col <- colorRampPalette(c("#4B0082", "#00FF00", "#FFA500", "#FF0000"))(100)
 corrplot.mixed(cor(df_encoded), lower.col = col, upper.col = "blue", tl.col = "black", tl.cex=0.8, tl.srt=45, tl.pos = "lt", number.cex = 0.4)
 
 ```
+
+Based on the data exploring we can see that "environment_satisfaction", "job_satisfaction" and "relationship_satisfaction" have a significant influence on the target variable. We will combine these three variables into one called "total_satisfaction".
+
+```{r}
+# create a new variable called total_satisfaction
+df$total_satisfaction <- df$environment_satisfaction + df$job_satisfaction + df$relationship_satisfaction
+
+# convert the variable to a factor with levels 3 to 12
+df$total_satisfaction <- factor(df$total_satisfaction, levels = 3:12)
+```
+
+create a new prediction model based on the data exploring
+
+```{r}
+# Fit the logistic regression model
+logisticmodel <- glm(attrition ~ years_at_company + total_working_years + job_involvement + business_travel + job_level + stock_option_level + over_time + years_in_current_role + monthly_income + years_at_company + marital_status + work_life_balance,
+                     data = train,
+                     family = binomial())
+
+# Predict on the testing set
+probabilities <- predict(logisticmodel, newdata = test, type = "response")
+
+# Convert probabilities to binary predictions
+predictions <- ifelse(probabilities > 0.5, 1, 0)
+
+# Evaluate the model
+confusion_matrix <- table(predictions, test$attrition)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(confusion_matrix)
+print(paste0("Accuracy: ", round(accuracy, 2)))
+```
+
+robustness check for model
+```{r}
+# Load the necessary library
+library(caret)
+
+# Define the training control
+train_control <- trainControl(method = "cv", number = 10)
+
+# Train the logistic regression model using cross-validation
+logistic_model_cv <- train(attrition ~ years_at_company + total_working_years + job_involvement + business_travel + job_level + stock_option_level + over_time + years_in_current_role + monthly_income + years_at_company + marital_status + work_life_balance,
+                           data = train,
+                           method = "glm",
+                           family = binomial(),
+                           trControl = train_control)
+
+# Print the cross-validation results
+print(logistic_model_cv)
+
+```
+
 
 
 
