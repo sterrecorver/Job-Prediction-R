@@ -199,6 +199,24 @@ print(confusion_matrix)
 print(paste0("Accuracy: ", round(accuracy, 2)))
 
 ```
+```{r}
+library(rpart)
+library(caret)
+
+# Define the training control
+ctrl <- trainControl(method = "cv", number = 10, verboseIter = FALSE)
+
+# Train the model with cross-validation
+dectreemodelcv <- train(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
+               data = train,
+               method = "rpart",
+               trControl = ctrl,
+               tuneLength = 10)
+
+# Print the cross-validation results
+print(dectreemodelcv)
+
+```
 
 
 
