@@ -457,7 +457,7 @@ create a new prediction model based on the data exploring
 
 ```{r}
 # Fit the logistic regression model
-logisticmodel <- glm(attrition ~ years_at_company + total_working_years + job_involvement + business_travel + job_level + stock_option_level + over_time + years_in_current_role + monthly_income + years_at_company + marital_status + work_life_balance,
+logisticmodel <- glm(attrition ~ total_working_years + job_involvement + business_travel + job_level + stock_option_level + over_time + years_in_current_role + monthly_income + marital_status + work_life_balance + job_satisfaction + relationship_satisfaction + environment_satisfaction,
                      data = train,
                      family = binomial())
 
@@ -474,7 +474,7 @@ print(confusion_matrix)
 print(paste0("Accuracy: ", round(accuracy, 2)))
 ```
 
-robustness check for model
+robustness check for model -removed years_at_company + 
 ```{r}
 # Load the necessary library
 library(caret)
@@ -483,7 +483,7 @@ library(caret)
 train_control <- trainControl(method = "cv", number = 10)
 
 # Train the logistic regression model using cross-validation
-logistic_model_cv <- train(attrition ~ years_at_company + total_working_years + job_involvement + business_travel + job_level + stock_option_level + over_time + years_in_current_role + monthly_income + years_at_company + marital_status + work_life_balance,
+logistic_model_cv <- train(attrition ~ total_working_years + job_involvement + business_travel + job_level + stock_option_level + over_time + years_in_current_role + monthly_income + marital_status  + work_life_balance + job_satisfaction + relationship_satisfaction + environment_satisfaction,
                            data = train,
                            method = "glm",
                            family = binomial(),
@@ -493,6 +493,11 @@ logistic_model_cv <- train(attrition ~ years_at_company + total_working_years + 
 print(logistic_model_cv)
 
 ```
+
+```{r}
+
+```
+
 
 
 
