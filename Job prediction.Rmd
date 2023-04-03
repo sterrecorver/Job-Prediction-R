@@ -30,6 +30,8 @@ library(glue)
 library(rsample)
 library(rpart)
 library(caret)
+library(randomForest)
+library(glmnet)
 ```
 
 **data preparation**
@@ -99,22 +101,13 @@ ordinal2 <-  c("job_involvement","performance_rating",
 ordinal3 <- c("job_level","stock_option_level")
 ```
 
-
-```{r}
-# create a new variable called total_satisfaction
-df$total_satisfaction <- df$environment_satisfaction + df$job_satisfaction + df$relationship_satisfaction
-
-# convert the variable to a factor with levels 3 to 12
-df$total_satisfaction <- factor(df$total_satisfaction, levels = 3:12)
-```
-
 ```{r}
 # create a new binary variable indicating if job level is lower than education level
-df <- df %>%
+df_new <- df %>%
   mutate(job_level_below_education = ifelse(job_level < education, 1, 0))
 
 # build a logistic regression model to predict attrition with the variable "job_level_below_education"
-model <- glm(attrition ~ job_level_below_education, data = df, family = binomial())
+model <- glm(attrition ~ job_level_below_education, data = df_new, family = binomial())
 
 # display model summary
 summary(model)
@@ -123,6 +116,14 @@ summary(model)
 n <- sum(df$attrition == 1 & df$job_level_below_education == 1)
 cat("Number of people with attrition = 1 and job_level_below_education = 1:", n)
 
+# create a contingency table
+table(df_new$attrition, df_new$job_level_below_education)
+
+# create a mosaic plot
+mosaicplot(table(df_new$attrition, df_new$job_level_below_education), 
+           main = "Attrition vs. Job Level Below Education", 
+           color = c("blue", "red"), 
+           ylab = "Attrition", xlab = "Job Level Below Education")
 ```
 
 ```{r}
@@ -133,6 +134,23 @@ set.seed(1234)
 split <- initial_split(df, prop = 0.8, strata = attrition)
 train <- training(split)
 test <- testing(split)
+
+# create a formula for logistic regression
+formula <- as.formula("attrition ~ .")
+
+# Convert job_search to a factor variable
+df$attrition <- factor(data$attrition, levels = c("No", "Yes"))
+
+# Split the data into training and test sets
+set.seed(123)
+train_indices <- sample(nrow(df), 0.8*nrow(df))
+train_data <- data[train_indices, ]
+test_data <- data[-train_indices, ]
+
+```
+
+```{r}
+
 ```
 
 **Descriptive analysis**
@@ -338,7 +356,6 @@ plot_bar <- function(tbl, var1) {
          y = "Attrition rate (%)")
 }
 
-
 # create a list of the plots of the ordinal variables
 plots_o1 <- lapply(ordinal1, function(x) plot_bar(df, x))
 plots_o2 <- lapply(ordinal2, function(x) plot_bar(df, x))
@@ -354,20 +371,6 @@ plots_c <- lapply(categorical, function(x) plot_bar(df, x))
 
 # arrange the plotlists in a 2x2 grid
 grid.arrange(grobs = plots_c, ncol = 2)
-
-```
-
-
-
-```{r}
-# create a contingency table
-table(df$attrition, df$job_level_below_education)
-
-# create a mosaic plot
-mosaicplot(table(df$attrition, df$job_level_below_education), 
-           main = "Attrition vs. Job Level Below Education", 
-           color = c("blue", "red"), 
-           ylab = "Attrition", xlab = "Job Level Below Education")
 
 ```
 
@@ -392,18 +395,6 @@ corrplot(cor(df[,numerical]), method="circle", order="hclust",
          col=my_colors, tl.col="#696969", tl.srt=45, tl.cex=0.8,
          addCoef.col="#333333", addCoefasPercent=TRUE)
 ```
-
-```{r}
-# create a new data frame with one-hot encoded variables
-df_encoded <- as.data.frame(model.matrix(~., data=df[,categorical]))
-
-# generate a correlation plot using the encoded data
-col <- colorRampPalette(c("#4B0082", "#00FF00", "#FFA500", "#FF0000"))(100)
-corrplot.mixed(cor(df_encoded), lower.col = col, upper.col = "blue", tl.col = "black", tl.cex=0.8, tl.srt=45, tl.pos = "lt", number.cex = 0.4)
-
-```
-
-create a new prediction model based on the data exploring
 
 ```{r}
 # fit the logistic regression model
@@ -441,11 +432,20 @@ logistic_model_cv <- train(attrition ~ total_working_years + job_involvement + b
 
 # Print the cross-validation results
 print(logistic_model_cv)
-
 ```
 
 ```{r}
+# train the random forest model
+rf_model <- randomForest(attrition ~ ., data = df, ntree = 500)
 
+# predict on the test data
+predictions <- predict(rf_model, newdata = test)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions, test$attrition)
+
+# plot the variable importance for attrition prediction
+varImpPlot(rf_model, main = "Variable Importance for Attrition Prediction")
 ```
 
 
