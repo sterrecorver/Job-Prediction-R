@@ -52,9 +52,7 @@ df <- df %>%
                 ~ if_else(. == "Yes",1,0))) %>% 
   mutate(across(c("attrition","over_time"),
                 ~ as.factor(.)))
-```
 
-```{r}
 # reclassify the nominal and the ordinal variables as factors, keeping the order
 df <- df %>%  
   mutate(across(c("department", "education_field",
@@ -71,10 +69,10 @@ df <- df %>%
 ```
 
 ```{r}
-# put the different types of variables into groups, for the plots later
+# put the different types of variables into groups and seperate the groups for the plots later
 numerical <- c("age", "distance_from_home","hourly_rate",
                "daily_rate","monthly_rate","monthly_income",
-               "percent_salary_hike","years_at_company",     "years_in_current_role","years_since_last_promotion",
+               "percent_salary_hike","years_at_company",  "years_in_current_role","years_since_last_promotion",
                "years_with_curr_manager","total_working_years",
                "num_companies_worked","training_times_last_year")
 
@@ -105,31 +103,9 @@ ordinal3 <- c("job_level","stock_option_level")
 # create a new binary variable indicating if job level is lower than education level
 df_new <- df %>%
   mutate(job_level_below_education = ifelse(job_level < education, 1, 0))
-
-# build a logistic regression model to predict attrition with the variable "job_level_below_education"
-model <- glm(attrition ~ job_level_below_education, data = df_new, family = binomial())
-
-# display model summary
-summary(model)
-
-# calculate the number of people with attrition = 1 who also have job_level_below_education = 1
-n <- sum(df$attrition == 1 & df$job_level_below_education == 1)
-cat("Number of people with attrition = 1 and job_level_below_education = 1:", n)
-
-# create a contingency table
-table(df_new$attrition, df_new$job_level_below_education)
-
-# create a mosaic plot
-mosaicplot(table(df_new$attrition, df_new$job_level_below_education), 
-           main = "Attrition vs. Job Level Below Education", 
-           color = c("blue", "red"), 
-           ylab = "Attrition", xlab = "Job Level Below Education")
 ```
 
 ```{r}
-# set the seed for reproducibility
-set.seed(1234)
-
 # create a train/test split using the `rsample` package
 split <- initial_split(df, prop = 0.8, strata = attrition)
 train <- training(split)
@@ -137,9 +113,6 @@ test <- testing(split)
 
 # create a formula for logistic regression
 formula <- as.formula("attrition ~ .")
-
-# Convert job_search to a factor variable
-df$attrition <- factor(data$attrition, levels = c("No", "Yes"))
 
 # Split the data into training and test sets
 set.seed(123)
@@ -149,26 +122,10 @@ test_data <- data[-train_indices, ]
 
 ```
 
-```{r}
-
-```
-
 **Descriptive analysis**
 ```{r}
-# count attrition for the pie chart
-attrition_counts <- data %>%
-  count(attrition)
-
-# create pie_chart function
-pie_chart <- ggplot(attrition_counts, aes(x = "", y = n, fill = attrition)) +
-  geom_bar(stat = "identity", width = 1) +
-  coord_polar("y", start = 0) +
-  geom_text(aes(label = paste0(n)), position = position_stack(vjust = 0.5)) +
-  labs(title = "Attrition") +
-  theme_void()
-
-# display the pie chart
-pie_chart
+attrition_table <- table(df$attrition)
+attrition_table
 ```
 
 ```{r}
@@ -192,12 +149,12 @@ boxplot_data <- subset_data %>%
   ggplot(aes(x = gender, y = years_in_current_role, fill = gender)) +
   geom_boxplot() +
   labs(x = "Gender", y = "Years in Current Role", title = "Years in Current Role by Gender") +
-  theme_minimal()
+  scale_fill_manual(values = c("red", "blue"))
 
-# create histogram with distribution of montly income
-histogram_data <- subset_data %>%
+# create histogram with distribution of monthly income
+income_histogram <- subset_data %>%
   ggplot(aes(x = monthly_income)) +
-  geom_histogram(binwidth = 500, fill = "#69b3a2", color = "white") +
+  geom_histogram(binwidth = 500, fill = "blue", color = "white") +
   labs(x = "Monthly Income", y = "Count", title = "Histogram of Monthly Income") +
   theme_minimal()
 
@@ -215,47 +172,26 @@ job_role_table <- kable(job_counts,
 # show the created figures
 summary_table
 boxplot_data
-histogram_data
+income_histogram
 job_role_table
 ```
 
-
-**Model based on literature**
 ```{r}
-# Build the decision tree model
-dectreemodel <- rpart(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
-               data = train,
-               method = "class")
+# calculate the number of people with attrition = 1 who also have job_level_below_education = 1
+n <- sum(df$attrition == 1 & df$job_level_below_education == 1)
+cat("Number of people with attrition = 1 and job_level_below_education = 1:", n)
 
-# Plot the decision tree
-rpart.plot(dectreemodel)
+# create a contingency table with job_level_below_eduaction and attrition
+table(df_new$attrition, df_new$job_level_below_education)
 
-# Predict on the testing set
-predictions <- predict(dectreemodel, newdata = test, type = "class")
-
-# Evaluate the model
-confusion_matrix <- table(predictions, test$attrition)
-accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
-print(confusion_matrix)
-print(paste0("Accuracy: ", round(accuracy, 2)))
-
+# create a mosaic plot
+mosaicplot(table(df_new$attrition, df_new$job_level_below_education), 
+           main = "Attrition vs. Job Level Below Education", 
+           color = c("blue", "red"), 
+           ylab = "Attrition", xlab = "Job Level Below Education")
 ```
 
-```{r}
-# Define the training control
-ctrl <- trainControl(method = "cv", number = 10, verboseIter = FALSE)
 
-# Train the model with cross-validation
-dectreemodelcv <- train(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
-               data = train,
-               method = "rpart",
-               trControl = ctrl,
-               tuneLength = 10)
-
-# Print the cross-validation results
-print(dectreemodelcv)
-
-```
 
 ```{r}
 # set up the general "settings" for the density plots we create of attrition against all our variables
@@ -374,8 +310,8 @@ grid.arrange(grobs = plots_c, ncol = 2)
 
 ```
 
+**attrition of job level against education**
 ```{r}
-# 
 ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) + 
   geom_bar(position = "fill") +
   facet_wrap(~education) +
@@ -383,27 +319,36 @@ ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) +
   scale_fill_manual(values = c("blue", "red"), labels = c("No", "Yes"))
 ```
 
+**correlation plot**
 ```{r}
-# define color palette
-my_colors <- colorRampPalette(c("#009E73", "#F0E442", "#0072B2"))(100)
-
-# set graphical parameters
-par(mar = c(0, 0, 0, 0), bg = "#F7FBFF")
-
-# plot correlation matrix with customized parameters
+# plot correlation matrix of the features
 corrplot(cor(df[,numerical]), method="circle", order="hclust",
-         col=my_colors, tl.col="#696969", tl.srt=45, tl.cex=0.8,
-         addCoef.col="#333333", addCoefasPercent=TRUE)
+         col=c("yellow","blue","red"), tl.col="black", tl.srt=1, tl.cex=0.6,
+         addCoef.col="black",addCoefasPercent=TRUE)
 ```
 
+**main analysis**
+*Logistic regression models*
 ```{r}
-# fit the logistic regression model
-logisticmodel <- glm(attrition ~ total_working_years + job_involvement + business_travel + job_level + stock_option_level + over_time + years_in_current_role + monthly_income + marital_status + work_life_balance + job_satisfaction + relationship_satisfaction + environment_satisfaction,
+# build a logistic regression model to predict attrition. Chosen variables are based on the literature research
+glm_model1 <- glm(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender, data = df_new, family = binomial())
+
+# display model summary
+summary(glm_model1)
+
+# build a logistic regression model to predict attrition with the variable "job_level_below_education" included
+glm_model2 <- glm(attrition ~ job_level_below_education + years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender, data = df_new, family = binomial())
+
+# display model summary
+summary(glm_model2)
+
+# fit the logistic regression model 
+glm_model3 <- glm(attrition ~ total_working_years + job_involvement + business_travel + job_level + stock_option_level + over_time + years_in_current_role + monthly_income + marital_status + work_life_balance + job_satisfaction + relationship_satisfaction + environment_satisfaction,
                      data = train,
                      family = binomial())
 
 # predict on the testing set
-probabilities <- predict(logisticmodel, newdata = test, type = "response")
+probabilities <- predict(glm_model3, newdata = test, type = "response")
 
 # convert probabilities to binary predictions
 predictions <- ifelse(probabilities > 0.5, 1, 0)
@@ -415,11 +360,8 @@ print(confusion_matrix)
 print(paste0("Accuracy: ", round(accuracy, 2)))
 ```
 
-robustness check for model -removed years_at_company + 
+*Logistic regression models with cross-validation*
 ```{r}
-# load the necessary library
-library(caret)
-
 # Define the training control
 train_control <- trainControl(method = "cv", number = 10)
 
@@ -434,9 +376,47 @@ logistic_model_cv <- train(attrition ~ total_working_years + job_involvement + b
 print(logistic_model_cv)
 ```
 
+*Decision tree*
 ```{r}
-# train the random forest model
-rf_model <- randomForest(attrition ~ ., data = df, ntree = 500)
+# Build the decision tree model with all features
+dectree_model <- rpart(attrition ~ .,
+               data = train,
+               method = "class")
+
+# Plot the decision tree
+rpart.plot(dectree_model)
+
+# Predict on the testing set
+dectree_predictions <- predict(dectree_model, newdata = test, type = "class")
+
+# Evaluate the model
+confusion_matrix <- table(dectree_predictions, test$attrition)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(confusion_matrix)
+print(paste0("Accuracy: ", round(accuracy, 2)))
+```
+
+*Cross-validation on decision tree*
+```{r}
+# Define the training control
+ctrl <- trainControl(method = "cv", number = 10, verboseIter = FALSE)
+
+# Train the model with cross-validation
+dectreemodelcv <- train(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
+               data = train,
+               method = "rpart",
+               trControl = ctrl,
+               tuneLength = 10)
+
+# Print the cross-validation results
+print(dectreemodelcv)
+
+```
+
+*Random Forest*
+```{r}
+# Train the random forest model on the training set
+rf_model <- randomForest(attrition ~ ., data = train, ntree = 100)
 
 # predict on the test data
 predictions <- predict(rf_model, newdata = test)
@@ -444,11 +424,400 @@ predictions <- predict(rf_model, newdata = test)
 # evaluate the model using confusion matrix
 confusionMatrix(predictions, test$attrition)
 
-# plot the variable importance for attrition prediction
-varImpPlot(rf_model, main = "Variable Importance for Attrition Prediction")
+# Get the variable importance scores from the random forest model
+importance_scores <- importance(rf_model)
+
+# Create a data frame for the variable importance scores
+importance_df <- data.frame(
+  feature = rownames(importance_scores),
+  importance = importance_scores[, "MeanDecreaseGini"]
+)
+
+# Plot the variable importance for attrition prediction
+ggplot(importance_df, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for Attrition Prediction") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+```
+
+*Random forest with cross-validation*
+```{r}
+# Define training control for 10-fold cross-validation
+train_control <- trainControl(method = "cv", number = 10)
+
+# Train the random forest model using cross-validation
+rf_model_cv <- train(attrition ~ ., data = train, method = "rf", trControl = train_control, ntree = 100)
+
+# Print the cross-validation results
+print(rf_model_cv)
+
+# Predict on the test set using the cross-validated model
+predictions_cv <- predict(rf_model_cv, newdata = test)
+
+# Evaluate the model using confusion matrix
+confusionMatrix(predictions_cv, test$attrition)
+```
+
+```{r}
+# Assuming your data frame is called "df"
+df_categorical <- df %>%
+  select(gender, department, education_field, job_role, marital_status) # exclude attrition
+
+# Create dummies
+dummy_model <- dummyVars(~., data = df_categorical)
+data_dummies <- as.data.frame(predict(dummy_model, newdata = df_categorical))
+
+# Combine with the response variable and make it numeric as needed for the lasso 
+df_final <- cbind(df$attrition, df[, -2], data_dummies)
+df_final[] <- lapply(df_final, as.numeric)
+
+# Split the data into training and testing sets
+set.seed(123)
+train_index <- sample(1:nrow(df_final), 0.7*nrow(df_final))
+train_data <- df_final[train_index, ]
+test_data <- df_final[-train_index, ]
+
+# Create the model matrix and response variable
+x <- as.matrix(train_data[, -2]) # exclude response variable
+y <- train_data[, 2] # response variable
+
+# Fit the Lasso model with lambda = 0.1
+lasso_fit1 <- glmnet(x, y, alpha = 1, lambda = 0.1)
+
+lasso_coef1 <- coef(lasso_fit1)
+print(lasso_coef1)
 ```
 
 
+*lasso model*
+```{r}
+# Assuming your data frame is called "df"
+df_categorical <- df %>%
+  select(gender, department, education_field, job_role, marital_status)
 
+# Create dummies
+dummy_model <- dummyVars(~., data = df_categorical)
+data_dummies <- as.data.frame(predict(dummy_model, newdata = df_categorical))
+
+# Remove old categorical variables
+df_new2 <- df %>% 
+  select(-business_travel, -gender, -department, -education_field, -job_role, -marital_status)
+
+# Combine with dummies and make it numeric as needed for the lasso 
+df_final <- cbind(df_new2, data_dummies)
+df_final[] <- lapply(df_final, as.numeric)
+df_final$attrition <- df_final$attrition - 1
+
+# Split the data into training and testing sets
+set.seed(123)
+train_index <- sample(1:nrow(df_final), 0.7*nrow(df_final))
+train_data <- df_final[train_index, ]
+test_data <- df_final[-train_index, ]
+
+# Create the model matrix and response variable
+x <- as.matrix(train_data[, -2]) # exclude attrition
+y <- train_data[, 2] # attrition
+
+# Fit the Lasso model with lambda = 0.1
+lasso_fit1 <- glmnet(x, y, alpha = 1, lambda = 0.1)
+
+lasso_coef1 <- coef(lasso_fit1)
+print(lasso_coef1)
+```
+
+*Lasso model with cross-validation*
+```{r}
+# Fit the Lasso model with cross-validation
+cv_lasso <- cv.glmnet(x, y, alpha = 1)
+
+# Plot the cross-validation curve
+plot(cv_lasso)
+
+# Select the best lambda value
+best_lambda <- cv_lasso$lambda.min
+
+# Fit the Lasso model with the selected lambda
+lasso_fit2 <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+
+# Get the coefficients
+lasso_coef2 <- coef(lasso_fit2)
+print(lasso_coef1)
+
+# Apply the model to the test data
+test_x <- as.matrix(test_data[, -2])
+test_y <- test_data[, 2]
+pred_y <- predict(lasso_fit2, newx = test_x)
+
+# Calculate the performance metrics (e.g. RMSE)
+RMSE <- sqrt(mean((pred_y - test_y)^2))
+```
+
+```{r}
+# Split the df dataset into male and female subsets
+male_df <- subset(df, gender == "Male")
+female_df <- subset(df, gender == "Female")
+
+# Split male_df into training and testing subsets
+set.seed(123)
+index_male <- createDataPartition(male_df$attrition, p = 0.7, list = FALSE)
+train_male <- male_df[index_male, ]
+test_male <- male_df[-index_male, ]
+
+# Split female_df into training and testing subsets
+set.seed(123)
+index_female <- createDataPartition(female_df$attrition, p = 0.7, list = FALSE)
+train_female <- female_df[index_female, ]
+test_female <- female_df[-index_female, ]
+
+```
+
+```{r}
+# Train the random forest model on the training set
+rf_model_male <- randomForest(attrition ~ ., data = train_male, ntree = 100)
+
+# predict on the test data
+predictions_male <- predict(rf_model_male, newdata = test_male)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_male, test_male$attrition)
+
+# Get the variable importance scores from the random forest model
+importance_scores_male <- importance(rf_model_male)
+
+# Create a data frame for the variable importance scores
+importance_df_male <- data.frame(
+  feature = rownames(importance_scores_male),
+  importance = importance_scores_male[, "MeanDecreaseGini"]
+)
+
+# Plot the variable importance for attrition prediction
+ggplot(importance_df_male, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for Male Attrition Prediction") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+```
+```{r}
+# Train the random forest model on the training set
+rf_model_female <- randomForest(attrition ~ ., data = train_female, ntree = 100)
+
+# predict on the test data
+predictions_female <- predict(rf_model_female, newdata = test_female)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_female, test_female$attrition)
+
+# Get the variable importance scores from the random forest model
+importance_scores_female <- importance(rf_model_female)
+
+# Create a data frame for the variable importance scores
+importance_df_female <- data.frame(
+  feature = rownames(importance_scores_female),
+  importance = importance_scores_female[, "MeanDecreaseGini"]
+)
+
+# Plot the variable importance for attrition prediction
+ggplot(importance_df_female, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "pink") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for Female Attrition Prediction") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+
+# Plot the variable importance for attrition prediction
+ggplot(importance_df_male, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for Male Attrition Prediction") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+library(ggplot2)
+ggplot(df, aes(x = age, fill = attrition)) +
+  geom_density(alpha = 0.6) +
+  scale_fill_manual(values = c("#FC4E07", "#00AFBB"), name = "Attrition",
+                    labels = c("No", "Yes")) +
+  labs(x = "Age", y = "Density", 
+       title = "Attrition Density Plot by Age") +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14, face = "bold"),
+        axis.text = element_text(size = 12))
+
+```
+```{r}
+# Create subset 1 (ages 18-30)
+df1830 <- df[df$age >= 18 & df$age < 30,]
+
+# Create subset 2 (ages 30-45)
+df3045 <- df[df$age >= 30 & df$age < 45,]
+
+# Create subset 3 (ages 45-60)
+df4560 <- df[df$age >= 45 & df$age <= 60,]
+
+#split into train and test sets
+set.seed(123)
+
+train_idx_1830 <- createDataPartition(df1830$attrition, p = 0.7, list = FALSE)
+train_1830 <- df1830[train_idx_1830, ]
+test_1830 <- df1830[-train_idx_1830, ]
+
+train_idx_3045 <- createDataPartition(df3045$attrition, p = 0.7, list = FALSE)
+train_3045 <- df3045[train_idx_3045, ]
+test_3045 <- df3045[-train_idx_3045, ]
+
+train_idx_4560 <- createDataPartition(df4560$attrition, p = 0.7, list = FALSE)
+train_4560 <- df4560[train_idx_4560, ]
+test_4560 <- df4560[-train_idx_4560, ]
+```
+
+
+```{r}
+# Train the random forest model on the training set
+rf_model_1830 <- randomForest(attrition ~ ., data = train_1830, ntree = 100)
+
+# predict on the test data
+predictions_1830 <- predict(rf_model_1830, newdata = test_1830)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_1830, test_1830$attrition)
+
+# Get the variable importance scores from the random forest model
+importance_scores_1830 <- importance(rf_model_1830)
+
+# Create a data frame for the variable importance scores
+importance_df_1830 <- data.frame(
+  feature = rownames(importance_scores_1830),
+  importance = importance_scores_1830[, "MeanDecreaseGini"]
+)
+
+# Plot the variable importance for attrition prediction
+ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "pink") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for predicting attrition from ages 18-30") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+# Train the random forest model on the training set
+rf_model_3045 <- randomForest(attrition ~ ., data = train_3045, ntree = 100)
+
+# predict on the test data
+predictions_3045 <- predict(rf_model_3045, newdata = test_3045)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_3045, test_3045$attrition)
+
+# Get the variable importance scores from the random forest model
+importance_scores_3045 <- importance(rf_model_3045)
+
+# Create a data frame for the variable importance scores
+importance_df_3045 <- data.frame(
+  feature = rownames(importance_scores_3045),
+  importance = importance_scores_3045[, "MeanDecreaseGini"]
+)
+
+# Plot the variable importance for attrition prediction
+ggplot(importance_df_3045, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "pink") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for predicting attrition from ages 30-45") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+# Train the random forest model on the training set
+rf_model_4560 <- randomForest(attrition ~ ., data = train_4560, ntree = 100)
+
+# predict on the test data
+predictions_4560 <- predict(rf_model_3045, newdata = test_4560)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_4560, test_4560$attrition)
+
+# Get the variable importance scores from the random forest model
+importance_scores_4560 <- importance(rf_model_4560)
+
+# Create a data frame for the variable importance scores
+importance_df_4560 <- data.frame(
+  feature = rownames(importance_scores_4560),
+  importance = importance_scores_4560[, "MeanDecreaseGini"]
+)
+
+# Plot the variable importance for attrition prediction
+ggplot(importance_df_4560, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "pink") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for predicting attrition from ages 45-60") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+library(gridExtra)
+
+# Create plots for each age group
+plot1 <- ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "pink") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for predicting attrition from ages 18-30") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+
+plot2 <- ggplot(importance_df_3045, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "pink") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for predicting attrition from ages 30-45") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+
+plot3 <- ggplot(importance_df_4560, aes(x = reorder(feature, -importance), y = importance)) +
+  geom_bar(stat = "identity", fill = "pink") +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Variable Importance for predicting attrition from ages 45-60") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12, face = "bold"))
+
+# Combine plots into a grid
+grid.arrange(plot1, plot2, plot3, nrow = 1)
+
+```
 
 
