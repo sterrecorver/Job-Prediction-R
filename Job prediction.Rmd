@@ -86,6 +86,9 @@ numerical4 <- c("num_companies_worked","training_times_last_year")
 
 categorical <- c("gender","over_time","department",
                  "education_field", "job_role", "marital_status")
+categorical1 <- c("gender","over_time")
+categorical2 <- c("education_field","department")
+categorical3 <- c("job_role", "marital_status")
 
 ordinal <- c("environment_satisfaction", "job_satisfaction",
              "relationship_satisfaction","work_life_balance",
@@ -101,8 +104,9 @@ ordinal3 <- c("job_level","stock_option_level")
 
 ```{r}
 # create a new binary variable indicating if job level is lower than education level
-df_new <- df %>%
-  mutate(job_level_below_education = ifelse(job_level < education, 1, 0))
+df <- df %>%
+  mutate(job_level_below_education = ifelse(job_level < education, 1, 0),
+         job_level_below_education = factor(job_level_below_education))
 ```
 
 ```{r}
@@ -182,10 +186,10 @@ n <- sum(df$attrition == 1 & df$job_level_below_education == 1)
 cat("Number of people with attrition = 1 and job_level_below_education = 1:", n)
 
 # create a contingency table with job_level_below_eduaction and attrition
-table(df_new$attrition, df_new$job_level_below_education)
+table(df$attrition, df$job_level_below_education)
 
 # create a mosaic plot
-mosaicplot(table(df_new$attrition, df_new$job_level_below_education), 
+mosaicplot(table(df$attrition, df$job_level_below_education), 
            main = "Attrition vs. Job Level Below Education", 
            color = c("blue", "red"), 
            ylab = "Attrition", xlab = "Job Level Below Education")
@@ -275,7 +279,7 @@ summarise_att <- function(tbl) {
               pct_att = att / n)
 }
 
-# create plot bar to show the attrition rate against the ordinal and the categorical variables
+# create plot bar to show the attrition rate against all categorical and ordinal variables
 plot_bar <- function(tbl, var1) {
   var1name <- as.name(var1)
   tbl %>%
@@ -286,6 +290,23 @@ plot_bar <- function(tbl, var1) {
     geom_col(aes(fill = {{ var1name }}), width = 0.75, color = "black") +
     geom_hline(yintercept = mean(tbl$attrition), linetype = 3) +
     theme(legend.position = "none") +
+    scale_y_continuous(labels = scales::percent_format()) +
+    labs(title = paste("Attrition rate by", var1),
+         x = var1,
+         y = "Attrition rate (%)")
+}
+
+# create plot bar with tilted labels for the long labels
+plot_bar2 <- function(tbl, var1) {
+  var1name <- as.name(var1)
+  tbl %>%
+    group_by({{ var1name }}) %>%
+    summarise_att() %>%
+    mutate({{ var1name }} := paste0({{ var1name }}, "\n(", n, ")")) %>%
+    ggplot(aes(x = {{ var1name }}, y = pct_att)) +
+    geom_col(aes(fill = {{ var1name }}), width = 0.75, color = "black") +
+    geom_hline(yintercept = mean(tbl$attrition), linetype = 3) +
+    theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
     scale_y_continuous(labels = scales::percent_format()) +
     labs(title = paste("Attrition rate by", var1),
          x = NULL,
@@ -303,10 +324,14 @@ grid.arrange(grobs = plots_o2, ncol = 2)
 grid.arrange(grobs = plots_o3, ncol = 2)
 
 # create a list of the plots of the categorical variables
-plots_c <- lapply(categorical, function(x) plot_bar(df, x))
+plots_c1 <- lapply(categorical1, function(x) plot_bar2(df, x))
+plots_c2 <- lapply(categorical2, function(x) plot_bar2(df, x))
+plots_c3 <- lapply(categorical3, function(x) plot_bar2(df, x))
 
-# arrange the plotlists in a 2x2 grid
-grid.arrange(grobs = plots_c, ncol = 2)
+# arrange the plotlists in a column
+grid.arrange(grobs = plots_c1, ncol = 2)
+grid.arrange(grobs = plots_c2, ncol = 2)
+grid.arrange(grobs = plots_c3, ncol = 2)
 
 ```
 
@@ -323,7 +348,7 @@ ggplot(df, aes(x = factor(job_level), fill = factor(attrition))) +
 ```{r}
 # plot correlation matrix of the features
 corrplot(cor(df[,numerical]), method="circle", order="hclust",
-         col=c("yellow","blue","red"), tl.col="black", tl.srt=1, tl.cex=0.6,
+         col=c("yellow","lightblue","pink"), tl.col="black", tl.srt=45, tl.cex=0.8,
          addCoef.col="black",addCoefasPercent=TRUE)
 ```
 
@@ -331,13 +356,13 @@ corrplot(cor(df[,numerical]), method="circle", order="hclust",
 *Logistic regression models*
 ```{r}
 # build a logistic regression model to predict attrition. Chosen variables are based on the literature research
-glm_model1 <- glm(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender, data = df_new, family = binomial())
+glm_model1 <- glm(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender, data = df, family = binomial())
 
 # display model summary
 summary(glm_model1)
 
 # build a logistic regression model to predict attrition with the variable "job_level_below_education" included
-glm_model2 <- glm(attrition ~ job_level_below_education + years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender, data = df_new, family = binomial())
+glm_model2 <- glm(attrition ~ job_level_below_education + years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender, data = df, family = binomial())
 
 # display model summary
 summary(glm_model2)
@@ -445,7 +470,7 @@ ggplot(importance_df, aes(x = reorder(feature, -importance), y = importance)) +
         plot.title = element_text(size = 12, face = "bold"))
 ```
 
-*Random forest with cross-validation*
+*Random forest with cross-validation without job_level_below_education*
 ```{r}
 # Define training control for 10-fold cross-validation
 train_control <- trainControl(method = "cv", number = 10)
@@ -463,6 +488,8 @@ predictions_cv <- predict(rf_model_cv, newdata = test)
 confusionMatrix(predictions_cv, test$attrition)
 ```
 
+**Division between female and male*°
+*making the division*
 ```{r}
 # Split the df dataset into male and female subsets
 male_df <- subset(df, gender == "Male")
@@ -482,6 +509,7 @@ test_female <- female_df[-index_female, ]
 
 ```
 
+*Random forest model*
 ```{r}
 # Train the random forest model on the training set
 rf_model_male <- randomForest(attrition ~ ., data = train_male, ntree = 100)
@@ -512,6 +540,9 @@ ggplot(importance_df_male, aes(x = reorder(feature, -importance), y = importance
         axis.title = element_text(size = 10),
         plot.title = element_text(size = 12, face = "bold"))
 ```
+
+
+
 ```{r}
 # Train the random forest model on the training set
 rf_model_female <- randomForest(attrition ~ ., data = train_female, ntree = 100)
@@ -533,7 +564,7 @@ importance_df_female <- data.frame(
 
 # Plot the variable importance for attrition prediction
 ggplot(importance_df_female, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "pink") +
+  geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for Female Attrition Prediction") +
@@ -558,7 +589,7 @@ ggplot(importance_df_male, aes(x = reorder(feature, -importance), y = importance
 library(ggplot2)
 ggplot(df, aes(x = age, fill = attrition)) +
   geom_density(alpha = 0.6) +
-  scale_fill_manual(values = c("#FC4E07", "#00AFBB"), name = "Attrition",
+  scale_fill_manual(values = c("red", "blue"), name = "Attrition",
                     labels = c("No", "Yes")) +
   labs(x = "Age", y = "Density", 
        title = "Attrition Density Plot by Age") +
@@ -567,6 +598,7 @@ ggplot(df, aes(x = age, fill = attrition)) +
         axis.text = element_text(size = 12))
 
 ```
+
 ```{r}
 # Create subset 1 (ages 18-30)
 df1830 <- df[df$age >= 18 & df$age < 30,]
@@ -615,7 +647,7 @@ importance_df_1830 <- data.frame(
 
 # Plot the variable importance for attrition prediction
 ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "pink") +
+  geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 18-30") +
@@ -646,7 +678,7 @@ importance_df_3045 <- data.frame(
 
 # Plot the variable importance for attrition prediction
 ggplot(importance_df_3045, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "pink") +
+  geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 30-45") +
@@ -677,7 +709,7 @@ importance_df_4560 <- data.frame(
 
 # Plot the variable importance for attrition prediction
 ggplot(importance_df_4560, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "pink") +
+  geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 45-60") +
@@ -692,7 +724,7 @@ library(gridExtra)
 
 # Create plots for each age group
 plot1 <- ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "pink") +
+  geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 18-30") +
@@ -702,7 +734,7 @@ plot1 <- ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = i
         plot.title = element_text(size = 12, face = "bold"))
 
 plot2 <- ggplot(importance_df_3045, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "pink") +
+  geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 30-45") +
@@ -712,7 +744,7 @@ plot2 <- ggplot(importance_df_3045, aes(x = reorder(feature, -importance), y = i
         plot.title = element_text(size = 12, face = "bold"))
 
 plot3 <- ggplot(importance_df_4560, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "pink") +
+  geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 45-60") +
