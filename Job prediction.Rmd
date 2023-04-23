@@ -625,7 +625,7 @@ ggplot(df, aes(x = age, fill = attrition)) +
 
 
 ```{r}
-# Train the random forest model on the training set
+# train the random forest model on the training set
 rf_model_1830 <- randomForest(attrition ~ ., data = train_1830, ntree = 100)
 
 # predict on the test data
@@ -634,16 +634,16 @@ predictions_1830 <- predict(rf_model_1830, newdata = test_1830)
 # evaluate the model using confusion matrix
 confusionMatrix(predictions_1830, test_1830$attrition)
 
-# Get the variable importance scores from the random forest model
+# get the variable importance scores from the random forest model
 importance_scores_1830 <- importance(rf_model_1830)
 
-# Create a data frame for the variable importance scores
+# create a data frame for the variable importance scores
 importance_df_1830 <- data.frame(
   feature = rownames(importance_scores_1830),
   importance = importance_scores_1830[, "MeanDecreaseGini"]
 )
 
-# Plot the variable importance for attrition prediction
+# plot the variable importance for attrition prediction
 ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = importance)) +
   geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
@@ -656,7 +656,7 @@ ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = importance
 ```
 
 ```{r}
-# Train the random forest model on the training set
+# train the random forest model on the training set
 rf_model_3145 <- randomForest(attrition ~ ., data = train_3145, ntree = 100)
 
 # predict on the test data
@@ -665,16 +665,16 @@ predictions_3145 <- predict(rf_model_3145, newdata = test_3145)
 # evaluate the model using confusion matrix
 confusionMatrix(predictions_3145, test_3145$attrition)
 
-# Get the variable importance scores from the random forest model
+# get the variable importance scores from the random forest model
 importance_scores_3145 <- importance(rf_model_3145)
 
-# Create a data frame for the variable importance scores
+# create a data frame for the variable importance scores
 importance_df_3145 <- data.frame(
   feature = rownames(importance_scores_3145),
   importance = importance_scores_3145[, "MeanDecreaseGini"]
 )
 
-# Plot the variable importance for attrition prediction
+# plot the variable importance for attrition prediction
 ggplot(importance_df_3145, aes(x = reorder(feature, -importance), y = importance)) +
   geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
@@ -687,7 +687,7 @@ ggplot(importance_df_3145, aes(x = reorder(feature, -importance), y = importance
 ```
 
 ```{r}
-# Train the random forest model on the training set
+# train the random forest model on the training set
 rf_model_4660 <- randomForest(attrition ~ ., data = train_4660, ntree = 100)
 
 # predict on the test data
@@ -696,16 +696,16 @@ predictions_4660 <- predict(rf_model_4660, newdata = test_4660)
 # evaluate the model using confusion matrix
 confusionMatrix(predictions_4660, test_4660$attrition)
 
-# Get the variable importance scores from the random forest model
+# get the variable importance scores from the random forest model
 importance_scores_4660 <- importance(rf_model_4660)
 
-# Create a data frame for the variable importance scores
+# create a data frame for the variable importance scores
 importance_df_4660 <- data.frame(
   feature = rownames(importance_scores_4660),
   importance = importance_scores_4660[, "MeanDecreaseGini"]
 )
 
-# Plot the variable importance for attrition prediction
+# plot the variable importance for attrition prediction
 ggplot(importance_df_4660, aes(x = reorder(feature, -importance), y = importance)) +
   geom_bar(stat = "identity", fill = "red") +
   xlab("Feature") +
@@ -717,43 +717,5 @@ ggplot(importance_df_4660, aes(x = reorder(feature, -importance), y = importance
         plot.title = element_text(size = 12, face = "bold"))
 ```
 
-```{r}
-library(gridExtra)
-
-# Create plots for each age group
-plot1 <- ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "red") +
-  xlab("Feature") +
-  ylab("Importance") +
-  ggtitle("Variable Importance for predicting attrition from ages 18-30") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
-        axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 10),
-        plot.title = element_text(size = 12, face = "bold"))
-
-plot2 <- ggplot(importance_df_3145, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "red") +
-  xlab("Feature") +
-  ylab("Importance") +
-  ggtitle("Variable Importance for predicting attrition from ages 30-45") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
-        axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 10),
-        plot.title = element_text(size = 12, face = "bold"))
-
-plot3 <- ggplot(importance_df_4660, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "red") +
-  xlab("Feature") +
-  ylab("Importance") +
-  ggtitle("Variable Importance for predicting attrition from ages 45-60") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8),
-        axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 10),
-        plot.title = element_text(size = 12, face = "bold"))
-
-# Combine plots into a grid
-grid.arrange(plot1, plot2, plot3, nrow = 1)
-
-```
 
 
