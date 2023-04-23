@@ -121,8 +121,8 @@ formula <- as.formula("attrition ~ .")
 
 ```{r}
 # split the df dataset into male and female subsets
-male_df <- subset(df, gender == "Male")
-female_df <- subset(df, gender == "Female")
+male_df <- subset(male_df, select = -c(gender))
+female_df <- subset(female_df, select = -c(gender))
 
 # split male_df into training and testing subsets
 set.seed(123)
@@ -421,7 +421,7 @@ glm_model2 <- glm(attrition ~ job_level_below_education + total_working_years + 
 probabilities_glm2 <- predict(glm_model2, newdata = test, type = "response")
 
 # convert probabilities to binary predictions
-predictions_glm2 <- ifelse(probabilities_glm3 > 0.5, 1, 0)
+predictions_glm2 <- ifelse(probabilities_glm2 > 0.5, 1, 0)
 
 # evaluate the model
 confusion_matrix_glm2 <- table(predictions_glm2, test$attrition)
@@ -565,7 +565,6 @@ ggplot(importance_df_male, aes(x = reorder(feature, -importance), y = importance
         plot.title = element_text(size = 12, face = "bold"))
 ```
 
-
 ```{r}
 # train the random forest model on the training set
 rf_model_female <- randomForest(attrition ~ ., data = train_female, ntree = 100)
@@ -607,6 +606,35 @@ ggplot(importance_df_male, aes(x = reorder(feature, -importance), y = importance
         axis.title = element_text(size = 10),
         plot.title = element_text(size = 12, face = "bold"))
 ```
+*Random Forest with cross-validation*
+```{r}
+# male
+# train the random forest model using cross-validation
+rf_model_male_cv <- train(attrition ~ ., data = train_male, method = "rf", trControl = train_control, ntree = 100)
+
+# print the cross-validation results
+print(rf_model_male_cv)
+
+# predict on the test set using the cross-validated model
+predictions_male_cv <- predict(rf_model_male_cv, newdata = test_male)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_male_cv, test_male$attrition)
+
+# female
+# train the random forest model using cross-validation
+rf_model_female_cv <- train(attrition ~ ., data = train_female, method = "rf", trControl = train_control, ntree = 100)
+
+# print the cross-validation results
+print(rf_model_female_cv)
+
+# predict on the test set using the cross-validated model
+predictions_female_cv <- predict(rf_model_female_cv, newdata = test_female)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_female_cv, test_female$attrition)
+```
+
 
 **Division between age groups**
 ```{r}
@@ -623,7 +651,7 @@ ggplot(df, aes(x = age, fill = attrition)) +
         axis.text = element_text(size = 12))
 ```
 
-
+*Random Forest on different age groups*
 ```{r}
 # train the random forest model on the training set
 rf_model_1830 <- randomForest(attrition ~ ., data = train_1830, ntree = 100)
@@ -715,6 +743,51 @@ ggplot(importance_df_4660, aes(x = reorder(feature, -importance), y = importance
         axis.text.y = element_text(size = 8),
         axis.title = element_text(size = 10),
         plot.title = element_text(size = 12, face = "bold"))
+```
+*Random Forest with cross-validation with different age groups*
+*subgroup ages 18-30*
+```{r}
+# train the random forest model using cross-validation
+rf_model_1830_cv <- train(attrition ~ ., data = train_1830, method = "rf", trControl = train_control, ntree = 100)
+
+# print the cross-validation results
+print(rf_model_1830_cv)
+
+# predict on the test set using the cross-validated model
+predictions_1830_cv <- predict(rf_model_1830_cv, newdata = test_1830)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_1830_cv, test_1830$attrition)
+```
+
+*subgroup ages 31-45*
+```{r}
+# train the random forest model using cross-validation
+rf_model_3145_cv <- train(attrition ~ ., data = train_3145, method = "rf", trControl = train_control, ntree = 100)
+
+# print the cross-validation results
+print(rf_model_3145_cv)
+
+# predict on the test set using the cross-validated model
+predictions_3145_cv <- predict(rf_model_3145_cv, newdata = test_3145)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_3145_cv, test_3145$attrition)
+```
+
+*subgroup ages 46-60*
+```{r}
+# train the random forest model using cross-validation
+rf_model_4660_cv <- train(attrition ~ ., data = train_4660, method = "rf", trControl = train_control, ntree = 100)
+
+# print the cross-validation results
+print(rf_model_4660_cv)
+
+# predict on the test set using the cross-validated model
+predictions_4660_cv <- predict(rf_model_4660_cv, newdata = test_4660)
+
+# evaluate the model using confusion matrix
+confusionMatrix(predictions_4660_cv, test_4660$attrition)
 ```
 
 
