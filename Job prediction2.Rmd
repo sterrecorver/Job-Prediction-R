@@ -121,6 +121,8 @@ formula <- as.formula("attrition ~ .")
 
 ```{r}
 # split the df dataset into male and female subsets
+male_df <- subset(df, gender == "Male")
+female_df <- subset(df, gender == "Male")
 male_df <- subset(male_df, select = -c(gender))
 female_df <- subset(female_df, select = -c(gender))
 
@@ -472,7 +474,7 @@ print(paste0("Accuracy: ", round(accuracy, 2)))
 ctrl <- trainControl(method = "cv", number = 10, verboseIter = FALSE)
 
 # train the model with cross-validation
-dectreemodelcv <- train(attrition ~ years_in_current_role + job_role + monthly_income + job_satisfaction + work_life_balance + age + gender,
+dectreemodelcv <- train(attrition ~ .,
                data = train,
                method = "rpart",
                trControl = ctrl,
@@ -673,7 +675,7 @@ importance_df_1830 <- data.frame(
 
 # plot the variable importance for attrition prediction
 ggplot(importance_df_1830, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "red") +
+  geom_bar(stat = "identity", fill = "blue") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 18-30") +
@@ -704,7 +706,7 @@ importance_df_3145 <- data.frame(
 
 # plot the variable importance for attrition prediction
 ggplot(importance_df_3145, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "red") +
+  geom_bar(stat = "identity", fill = "blue") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 31-45") +
@@ -735,7 +737,7 @@ importance_df_4660 <- data.frame(
 
 # plot the variable importance for attrition prediction
 ggplot(importance_df_4660, aes(x = reorder(feature, -importance), y = importance)) +
-  geom_bar(stat = "identity", fill = "red") +
+  geom_bar(stat = "identity", fill = "blue") +
   xlab("Feature") +
   ylab("Importance") +
   ggtitle("Variable Importance for predicting attrition from ages 46-60") +
